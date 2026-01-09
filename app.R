@@ -4,15 +4,15 @@ library(openxlsx)
 library(janitor)
 library(bslib)
 library(lubridate)
-orders <- read.xlsx("data/bestellingen 7180 2025_not_latest.xlsx" )
+orders <- read.xlsx("data/bestellingen 7180 2025_2026_latest.xlsx" )
 orders <- as.data.frame(orders)
 #orders$Winkelwagennummer <- as.numeric(orders$Winkelwagennummer)
 #orders$Pos. <- as.numeric(orders$Pos.)
 orders$Status <- as.factor(orders$Status)
-orders$Nettowaarde <- as.numeric(orders$Nettowaarde)
+#orders$Nettowaarde <- as.numeric(orders$Nettowaarde)
 orders$Valuta <- as.factor(orders$Valuta)
 orders$Gecreeerd.door <- as.factor(orders$Gecreeerd.door)
-orders$Date <- dmy_hms(orders$Date) %>% as_date()
+orders$Date <- as.Date(orders$Date, origin="1900-01-01") 
 orders$Groep <- as.factor(orders$Groep)
 orders$Wie_Wat <- as.factor(orders$Wie_Wat)
 orders$Rekening <- as.factor(orders$Rekening)
@@ -25,11 +25,11 @@ orders <- orders %>% arrange(desc(Nettowaarde))
 ui <- page_sidebar(
   title= "Overzicht uitgaven 7180",
   sidebar = sidebar("Kies eerst een periode",
-                    dateRangeInput("datum", "Datum", start = "2025-01-01", end = "2025-12-31" ),
-                    selectInput("groep", "Groep", choices = c("", sort(as.character(unique(orders$Groep))))),
+                    dateRangeInput("datum", "Datum", start = "2026-01-01", end = "2026-12-31" ),
+                    selectInput("groep", "Groep", choices = NULL),
                     selectInput("wat", "Wat", choices = NULL) ),
   card(
-    card_header("Plot"),
+    card_header("Wat?"),
     plotOutput("plot"))
   ,
   card(
@@ -41,12 +41,18 @@ ui <- page_sidebar(
 
 #shiny server
 server <- function(input, output, session) {
-  
-  
-  groep <- reactive({
-    filter(orders, Groep == input$groep)
+  datum <- reactive({
+    filter(orders, Date >= input$datum[1] & Date <= input$datum[2])
   })
   
+  groep <- reactive({
+    filter(orders, (Date >= input$datum[1] & Date <= input$datum[2]) & Groep == input$groep)
+  })
+  observeEvent(datum(), {
+    choices <- c("", sort(as.character(datum()$Groep)))
+    freezeReactiveValue(input, "groep")
+    updateSelectInput(inputId = "groep", choices = choices)
+  })
   observeEvent(groep(), {
     choices <- c("", sort(as.character(groep()$Wie_Wat)))
     freezeReactiveValue(input, "wat")
@@ -67,6 +73,7 @@ server <- function(input, output, session) {
   )
   output$data <- DT::renderDT({
     req(input$groep)
+    req(input$wat)
     groep() %>% 
       filter(Date >= input$datum[1] & Date <= input$datum[2] ) %>%
       filter(Wie_Wat == input$wat) %>%
