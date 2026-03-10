@@ -731,12 +731,12 @@ server <- function(input, output, session) {
         filter(Subcategories == sel_sub()) %>%
         arrange(desc(Date)) %>%
         mutate(
-          Price = paste0("€ ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
+          Price = paste0("EUR ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
           Date  = format(Date, "%d-%m-%Y")
         ) %>%
-        select(Date, Shopping_basket, Basket_name, Product, Ordered_by, Price)
+        select(Date, Shopping_basket, Basket_name, Product, Price)
       
-      total_fmt <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+      total_fmt <- paste0("EUR ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
       
       # ── Colours ─────────────────────────────────────────────────────────────
       col_dark  <- "#1d3557"
@@ -745,8 +745,8 @@ server <- function(input, output, session) {
       col_grey  <- "#f4f6fb"
       
       # ── Column layout ────────────────────────────────────────────────────────
-      col_labels <- c("Date", "Basket #", "Basket Name", "Product", "Ordered By", "Price")
-      col_widths <- c(0.10, 0.10, 0.20, 0.32, 0.14, 0.14)  # fractions of content width
+      col_labels <- c("Date", "Basket #", "Basket Name", "Product", "Price")
+      col_widths <- c(0.11, 0.11, 0.24, 0.40, 0.14)  # fractions of content width
       n_cols     <- length(col_labels)
       n_rows     <- nrow(d_raw)
       
@@ -780,8 +780,8 @@ server <- function(input, output, session) {
       
       # ── Meta cards ──────────────────────────────────────────────────────────
       meta_h   <- 0.09
-      meta_lbs <- c("CATEGORY", "BILL TO", "SUBCATEGORY", "PERIOD")
-      meta_vls <- c(sel_cat(), sel_rek(), sel_sub(), timeframe_label())
+      meta_lbs <- c("BILL TO", "SUBCATEGORY", "PERIOD")
+      meta_vls <- c(sel_rek(), sel_sub(), timeframe_label())
       card_w   <- 1 / length(meta_lbs)
       grid.rect(x = 0, y = y_cursor - meta_h, width = 1, height = meta_h,
                 just = c("left","bottom"), gp = gpar(fill = col_grey, col = "#dde3f0", lwd = 0.5))
