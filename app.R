@@ -112,8 +112,8 @@ ui <- fluidPage(
                                                dateRangeInput("date_range", NULL,
                                                               start     = as.Date(paste0(format(Sys.Date(), "%Y"), "-01-01")),
                                                               end       = max(df$Date[format(df$Date, "%Y") == format(Sys.Date(), "%Y")], na.rm = TRUE),
-                                                              min       = min(df$Date, na.rm = TRUE),
-                                                              max       = max(df$Date, na.rm = TRUE),
+                                                              min       = as.Date(paste0(format(min(df$Date, na.rm = TRUE), "%Y"), "-01-01")),
+                                                              max       = as.Date(paste0(format(max(df$Date, na.rm = TRUE), "%Y"), "-12-31")),
                                                               format    = "dd-mm-yyyy",
                                                               separator = " to "
                                                )
@@ -592,7 +592,13 @@ server <- function(input, output, session) {
                 stateSave  = FALSE
               )
     ) %>%
-      formatStyle("Price", fontWeight = "bold", color = "#e63946")
+      formatStyle("Price", fontWeight = "bold", color = "#e63946") %>%
+      formatStyle("Product",
+                  target    = "row",
+                  fontWeight = styleEqual("TOTAL", "bold"),
+                  background = styleEqual("TOTAL", "#fff3f3"),
+                  fontSize   = styleEqual("TOTAL", "1rem")
+      )
   }, server = TRUE)
   
   # Download handlers — export only filtered rows
@@ -640,14 +646,26 @@ server <- function(input, output, session) {
   # Reactive: cleaned product data for export
   prod_data_clean <- reactive({
     req(sel_cat(), sel_sub())
-    sub_data() %>%
+    d <- sub_data() %>%
       filter(Subcategories == sel_sub()) %>%
-      arrange(desc(Date)) %>%
+      arrange(desc(Date))
+    
+    # Add total row before formatting
+    total_price <- sum(d$Price, na.rm = TRUE)
+    
+    d <- d %>%
       mutate(
         Price = paste0("€ ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
-        Date        = format(Date, "%d-%m-%Y")
+        Date  = format(Date, "%d-%m-%Y")
       ) %>%
       select(-Label, -`Pos.`, -Status, -Valuta, -Time)
+    
+    # Append total row
+    total_row <- d[1, ]
+    total_row[1, ] <- NA
+    total_row$Product <- "TOTAL"
+    total_row$Price   <- paste0("€ ", formatC(total_price, format = "f", digits = 2, big.mark = ","))
+    bind_rows(d, total_row)
   })
   
   prod_fname <- reactive({
