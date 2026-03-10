@@ -1299,6 +1299,30 @@
         "Built": "R 4.5.1; ; 2025-10-06 03:03:09 UTC; windows"
       }
     },
+    "gridExtra": {
+      "Source": "CRAN",
+      "Repository": "https://cran.rstudio.com",
+      "description": {
+        "Package": "gridExtra",
+        "Authors@R": "c(person(\"Baptiste\", \"Auguie\",\n    email = \"baptiste.auguie@gmail.com\",\n    role = c(\"aut\", \"cre\")), person(\"Anton\", \"Antonov\",\n    email = \"tonytonov@gmail.com\",\n    role = c(\"ctb\")))",
+        "License": "GPL (>= 2)",
+        "Title": "Miscellaneous Functions for \"Grid\" Graphics",
+        "Type": "Package",
+        "Description": "Provides a number of user-level functions to work with \"grid\"\n    graphics, notably to arrange multiple grid-based plots on a page, and draw\n    tables.",
+        "Version": "2.3",
+        "VignetteBuilder": "knitr",
+        "Imports": "gtable, grid, grDevices, graphics, utils",
+        "Suggests": "ggplot2, egg, lattice, knitr, testthat",
+        "RoxygenNote": "6.0.1",
+        "NeedsCompilation": "no",
+        "Packaged": "2017-09-08 22:52:09 UTC; baptiste",
+        "Author": "Baptiste Auguie [aut, cre],\n  Anton Antonov [ctb]",
+        "Maintainer": "Baptiste Auguie <baptiste.auguie@gmail.com>",
+        "Repository": "CRAN",
+        "Date/Publication": "2017-09-09 14:12:08 UTC",
+        "Built": "R 4.5.0; ; 2025-06-16 01:32:14 UTC; windows"
+      }
+    },
     "gtable": {
       "Source": "CRAN",
       "Repository": "https://cran.rstudio.com",
@@ -3692,7 +3716,7 @@
       "checksum": "f8fce3b4a879fc9b94ba12feaf329324"
     },
     "app.R": {
-      "checksum": "327116d2f762a7e090218f9a5582ef3c"
+      "checksum": "ce6bbdac1b8ff94ef064cb0b8145f531"
     },
     "app_old.R": {
       "checksum": "504d0cc52b864d0a234f2bfc673a4b7d"
@@ -3701,7 +3725,7 @@
       "checksum": "327116d2f762a7e090218f9a5582ef3c"
     },
     "data/bestellingen 7180 2025_2026_latest.xlsx": {
-      "checksum": "3a710c27c3ebdf64d57ca58d0e3a7ffb"
+      "checksum": "658ffcfd4f45629b5fc9075cc80f9ee6"
     },
     "data/bestellingen 7180 2025_not_latest.xlsx": {
       "checksum": "0eff09883141d4bfe0d9f367a0b0b44a"

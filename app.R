@@ -3,6 +3,9 @@ library(readxl)
 library(dplyr)
 library(plotly)
 library(DT)
+library(writexl)
+library(grid)
+library(gridExtra)
 
 # ── Load data ──────────────────────────────────────────────────────────────────
 df <- read_excel("data/bestellingen 7180 2025_2026_latest.xlsx") %>%
@@ -173,7 +176,8 @@ ui <- fluidPage(
                                                          h4(style = "margin-bottom:0; border-bottom:none;", uiOutput("prod_title")),
                                                          div(
                                                            downloadButton("dl_prod_csv",   label = "CSV",   style = "margin-right:6px;"),
-                                                           downloadButton("dl_prod_excel", label = "Excel")
+                                                           downloadButton("dl_prod_excel", label = "Excel", style = "margin-right:6px;"),
+                                                           uiOutput("dl_prod_pdf_ui")
                                                          )
                                                      ),
                                                      tags$hr(style = "border-color:#e63946; margin-top:8px;"),
@@ -709,6 +713,154 @@ server <- function(input, output, session) {
     d    <- prod_data_clean()
     if (is.null(rows) || length(rows) == 0) d else d[rows, , drop = FALSE]
   })
+  
+  # Only show PDF button for Exotisch > Bill_to path
+  output$dl_prod_pdf_ui <- renderUI({
+    if (!is.null(sel_cat()) && sel_cat() == "Exotisch" && !is.null(sel_rek())) {
+      downloadButton("dl_prod_pdf", label = "PDF",
+                     style = "background:#e63946; color:white; border:none; margin-left:0;")
+    }
+  })
+  
+  output$dl_prod_pdf <- downloadHandler(
+    filename = function() paste0(prod_fname(), ".pdf"),
+    content  = function(file) {
+      req(sel_cat(), sel_sub())
+      
+      d_raw <- sub_data() %>%
+        filter(Subcategories == sel_sub()) %>%
+        arrange(desc(Date)) %>%
+        mutate(
+          Price = paste0("€ ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
+          Date  = format(Date, "%d-%m-%Y")
+        ) %>%
+        select(Date, Shopping_basket, Basket_name, Product, Ordered_by, Price)
+      
+      total_fmt <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+      
+      # ── Colours ─────────────────────────────────────────────────────────────
+      col_dark  <- "#1d3557"
+      col_red   <- "#e63946"
+      col_light <- "#eaf2ff"
+      col_grey  <- "#f4f6fb"
+      
+      # ── Column layout ────────────────────────────────────────────────────────
+      col_labels <- c("Date", "Basket #", "Basket Name", "Product", "Ordered By", "Price")
+      col_widths <- c(0.10, 0.10, 0.20, 0.32, 0.14, 0.14)  # fractions of content width
+      n_cols     <- length(col_labels)
+      n_rows     <- nrow(d_raw)
+      
+      # ── Page setup ───────────────────────────────────────────────────────────
+      pdf(file, width = 11, height = 8.5, paper = "a4r")  # landscape A4
+      grid.newpage()
+      
+      # margins in npc
+      ml <- 0.04; mr <- 0.04; mt <- 0.03; mb <- 0.04
+      cw <- 1 - ml - mr   # content width
+      ch <- 1 - mt - mb   # content height
+      
+      vp_main <- viewport(x = ml, y = mb, width = cw, height = ch,
+                          just = c("left","bottom"))
+      pushViewport(vp_main)
+      
+      y_cursor <- 1.0  # top of content area
+      
+      # ── Header bar ──────────────────────────────────────────────────────────
+      hdr_h <- 0.10
+      grid.rect(x = 0, y = y_cursor - hdr_h, width = 1, height = hdr_h,
+                just = c("left","bottom"), gp = gpar(fill = col_dark, col = NA))
+      grid.text("Expenses on 7180", x = 0.02, y = y_cursor - hdr_h/2 + 0.02,
+                just = c("left","center"), gp = gpar(col = "white", fontsize = 16, fontface = "bold"))
+      grid.text("Purchase Report", x = 0.02, y = y_cursor - hdr_h/2 - 0.02,
+                just = c("left","center"), gp = gpar(col = "#a8dadc", fontsize = 9))
+      grid.text(paste("Generated:", format(Sys.Date(), "%d-%m-%Y")),
+                x = 0.98, y = y_cursor - hdr_h/2,
+                just = c("right","center"), gp = gpar(col = "white", fontsize = 8))
+      y_cursor <- y_cursor - hdr_h - 0.02
+      
+      # ── Meta cards ──────────────────────────────────────────────────────────
+      meta_h   <- 0.09
+      meta_lbs <- c("CATEGORY", "BILL TO", "SUBCATEGORY", "PERIOD")
+      meta_vls <- c(sel_cat(), sel_rek(), sel_sub(), timeframe_label())
+      card_w   <- 1 / length(meta_lbs)
+      grid.rect(x = 0, y = y_cursor - meta_h, width = 1, height = meta_h,
+                just = c("left","bottom"), gp = gpar(fill = col_grey, col = "#dde3f0", lwd = 0.5))
+      for (i in seq_along(meta_lbs)) {
+        cx <- (i - 1) * card_w + card_w / 2
+        grid.text(meta_lbs[i], x = cx, y = y_cursor - 0.025,
+                  just = c("center","center"), gp = gpar(col = "#888888", fontsize = 7, fontface = "plain"))
+        grid.text(meta_vls[i], x = cx, y = y_cursor - 0.062,
+                  just = c("center","center"), gp = gpar(col = col_dark,  fontsize = 10, fontface = "bold"))
+        if (i < length(meta_lbs))
+          grid.lines(x = c((i * card_w), (i * card_w)), y = c(y_cursor - meta_h, y_cursor),
+                     gp = gpar(col = "#dde3f0", lwd = 0.5))
+      }
+      y_cursor <- y_cursor - meta_h - 0.025
+      
+      # ── Table: available height ──────────────────────────────────────────────
+      avail_h  <- y_cursor - 0.08   # leave room for total box + footer
+      row_h    <- min(0.045, avail_h / (n_rows + 1.5))
+      hdr_row_h <- row_h * 1.1
+      
+      # column x positions
+      col_x <- cumsum(c(0, col_widths[-n_cols]))
+      
+      # Header row
+      grid.rect(x = 0, y = y_cursor - hdr_row_h, width = 1, height = hdr_row_h,
+                just = c("left","bottom"), gp = gpar(fill = col_dark, col = NA))
+      for (j in seq_len(n_cols)) {
+        grid.text(col_labels[j],
+                  x = col_x[j] + 0.008,
+                  y = y_cursor - hdr_row_h / 2,
+                  just = c("left","center"),
+                  gp = gpar(col = "white", fontsize = 7.5, fontface = "bold"))
+      }
+      y_cursor <- y_cursor - hdr_row_h
+      
+      # Data rows
+      for (i in seq_len(n_rows)) {
+        bg <- if (i %% 2 == 0) col_light else "white"
+        grid.rect(x = 0, y = y_cursor - row_h, width = 1, height = row_h,
+                  just = c("left","bottom"), gp = gpar(fill = bg, col = "#dddddd", lwd = 0.3))
+        row_vals <- as.character(unlist(d_raw[i, ]))
+        row_vals[is.na(row_vals)] <- ""
+        for (j in seq_len(n_cols)) {
+          is_price <- j == n_cols
+          grid.text(row_vals[j],
+                    x = if (is_price) col_x[j] + col_widths[j] - 0.008 else col_x[j] + 0.008,
+                    y = y_cursor - row_h / 2,
+                    just = c(if (is_price) "right" else "left", "center"),
+                    gp = gpar(col = if (is_price) col_red else col_dark,
+                              fontsize = 7, fontface = if (is_price) "bold" else "plain"))
+        }
+        y_cursor <- y_cursor - row_h
+      }
+      
+      # Separator line above total
+      grid.lines(x = c(0,1), y = c(y_cursor, y_cursor),
+                 gp = gpar(col = col_red, lwd = 1.5))
+      y_cursor <- y_cursor - 0.015
+      
+      # ── Total box ────────────────────────────────────────────────────────────
+      tot_h <- 0.055
+      grid.rect(x = 0, y = y_cursor - tot_h, width = 1, height = tot_h,
+                just = c("left","bottom"), gp = gpar(fill = "#fff3f3", col = col_red, lwd = 1.2))
+      grid.text("TOTAL", x = 0.02, y = y_cursor - tot_h / 2,
+                just = c("left","center"), gp = gpar(col = col_dark, fontsize = 11, fontface = "bold"))
+      grid.text(total_fmt, x = 0.98, y = y_cursor - tot_h / 2,
+                just = c("right","center"), gp = gpar(col = col_red, fontsize = 13, fontface = "bold"))
+      y_cursor <- y_cursor - tot_h - 0.015
+      
+      # ── Footer ───────────────────────────────────────────────────────────────
+      grid.lines(x = c(0,1), y = c(0.015, 0.015), gp = gpar(col = "#dddddd", lwd = 0.5))
+      grid.text(paste0("Period: ", timeframe_label(), "  |  Expenses on 7180"),
+                x = 0.5, y = 0.007, just = c("center","bottom"),
+                gp = gpar(col = "#aaaaaa", fontsize = 7))
+      
+      popViewport()
+      dev.off()
+    }
+  )
   
   output$dl_prod_csv <- downloadHandler(
     filename = function() paste0(prod_fname(), ".csv"),
