@@ -592,13 +592,7 @@ server <- function(input, output, session) {
                 stateSave  = FALSE
               )
     ) %>%
-      formatStyle("Price", fontWeight = "bold", color = "#e63946") %>%
-      formatStyle("Product",
-                  target    = "row",
-                  fontWeight = styleEqual("TOTAL", "bold"),
-                  background = styleEqual("TOTAL", "#fff3f3"),
-                  fontSize   = styleEqual("TOTAL", "1rem")
-      )
+      formatStyle("Price", fontWeight = "bold", color = "#e63946")
   }, server = TRUE)
   
   # Download handlers — export only filtered rows
@@ -640,7 +634,12 @@ server <- function(input, output, session) {
                 columnDefs = list(list(className = "dt-center", targets = "_all"))
               )
     ) %>%
-      formatStyle("Price", fontWeight = "bold", color = "#e63946")
+      formatStyle("Price", fontWeight = "bold", color = "#e63946") %>%
+      formatStyle("Product",
+                  target     = "row",
+                  fontWeight = styleEqual("TOTAL", "bold"),
+                  background = styleEqual("TOTAL", "#fff3f3")
+      )
   }, server = TRUE)
   
   # Reactive: cleaned product data for export
