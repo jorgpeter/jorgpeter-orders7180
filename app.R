@@ -616,8 +616,13 @@ server <- function(input, output, session) {
   
   # ── Level 3 – Product table ────────────────────────────────────────────────
   output$prod_title <- renderUI({
-    HTML(paste0("Products in <b>", sel_sub(), "</b>",
-                " &nbsp;<small style='color:#888;font-weight:400;'>", timeframe_label(), "</small>"))
+    req(sel_cat(), sel_sub())
+    total_fmt <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+    HTML(paste0(
+      "Products in <b>", sel_sub(), "</b>",
+      " &nbsp;<span style='color:#e63946;font-weight:700;'>", total_fmt, "</span>",
+      " &nbsp;<small style='color:#888;font-weight:400;'>", timeframe_label(), "</small>"
+    ))
   })
   
   output$table_prod <- renderDT({
@@ -625,10 +630,9 @@ server <- function(input, output, session) {
     
     datatable(prod_data_clean(),
               rownames = FALSE,
-              filter   = "top",
               options  = list(
-                pageLength = 15,
-                dom        = "frtip",
+                pageLength = 100,
+                dom        = "tip",
                 order      = list(),
                 scrollX    = TRUE,
                 columnDefs = list(list(className = "dt-center", targets = "_all"))
@@ -642,29 +646,36 @@ server <- function(input, output, session) {
       )
   }, server = TRUE)
   
+  # Reactive: raw total price (before formatting)
+  prod_total_price <- reactive({
+    req(sel_cat(), sel_sub())
+    sub_data() %>%
+      filter(Subcategories == sel_sub()) %>%
+      summarise(total = sum(Price, na.rm = TRUE)) %>%
+      pull(total)
+  })
+  
   # Reactive: cleaned product data for export
   prod_data_clean <- reactive({
     req(sel_cat(), sel_sub())
     d <- sub_data() %>%
       filter(Subcategories == sel_sub()) %>%
-      arrange(desc(Date))
-    
-    # Add total row before formatting
-    total_price <- sum(d$Price, na.rm = TRUE)
-    
-    d <- d %>%
+      arrange(desc(Date)) %>%
       mutate(
         Price = paste0("€ ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
         Date  = format(Date, "%d-%m-%Y")
       ) %>%
       select(-Label, -`Pos.`, -Status, -Valuta, -Time)
     
-    # Append total row
-    total_row <- d[1, ]
-    total_row[1, ] <- NA
-    total_row$Product <- "TOTAL"
-    total_row$Price   <- paste0("€ ", formatC(total_price, format = "f", digits = 2, big.mark = ","))
-    bind_rows(d, total_row)
+    # Only append TOTAL row for Exotisch > Bill_to > Subcategory path
+    if (!is.null(sel_cat()) && sel_cat() == "Exotisch" && !is.null(sel_rek())) {
+      total_row <- d[1, ]
+      total_row[1, ] <- NA
+      total_row$Product <- "TOTAL"
+      total_row$Price   <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+      d <- bind_rows(d, total_row)
+    }
+    d
   })
   
   prod_fname <- reactive({
