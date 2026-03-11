@@ -59,7 +59,7 @@ ui <- fluidPage(
     }
     .panel-box h4 {
       color: #1d3557; font-weight: 700; margin-top: 0;
-      border-bottom: 2px solid #e63946; padding-bottom: 8px;
+      border-bottom: 2px solid #457b9d; padding-bottom: 8px;
     }
     .breadcrumb-bar {
       background: #eaf2ff; border-left: 4px solid #457b9d;
@@ -175,12 +175,10 @@ ui <- fluidPage(
                                                      div(style = "display:flex; justify-content:space-between; align-items:center;",
                                                          h4(style = "margin-bottom:0; border-bottom:none;", uiOutput("prod_title")),
                                                          div(
-                                                           downloadButton("dl_prod_csv",   label = "CSV",   style = "margin-right:6px;"),
-                                                           downloadButton("dl_prod_excel", label = "Excel", style = "margin-right:6px;"),
-                                                           uiOutput("dl_prod_pdf_ui")
+                                                           uiOutput("dl_prod_buttons_ui")
                                                          )
                                                      ),
-                                                     tags$hr(style = "border-color:#e63946; margin-top:8px;"),
+                                                     tags$hr(style = "border-color:#457b9d; margin-top:8px;"),
                                                      DTOutput("table_prod")
                                                  )
                                 )
@@ -198,7 +196,7 @@ ui <- fluidPage(
                                  downloadButton("dl_all_excel", label = "Excel")
                                )
                            ),
-                           tags$hr(style = "border-color:#e63946; margin-top:8px;"),
+                           tags$hr(style = "border-color:#457b9d; margin-top:8px;"),
                            p(class = "hint", "Use the search box or column filters to narrow down, then export all matching rows."),
                            DTOutput("table_all")
                        )
@@ -400,29 +398,44 @@ server <- function(input, output, session) {
         y             = as.formula(paste0("~`", group_col, "`")),
         type          = "bar",
         orientation   = "h",
-        marker        = list(color = fills),
-        text          = ~paste0("\u20ac", formatC(Total, format = "f", digits = 0, big.mark = ",")),
+        marker        = list(
+          color  = fills,
+          line   = list(color = "white", width = 1.5)
+        ),
+        text          = ~paste0("  \u20ac", formatC(Total, format = "f", digits = 0, big.mark = ",")),
         textposition  = "outside",
-        hovertemplate = "%{y}<br><b>\u20ac%{x:,.0f}</b><extra></extra>",
+        textfont      = list(size = 12, color = "#1d3557", family = "Segoe UI"),
+        hovertemplate = "<b>%{y}</b><br>\u20ac %{x:,.0f}<extra></extra>",
         source        = source_id
       ) %>%
         layout(
           xaxis = list(
-            title      = "Total (\u20ac)",
+            title      = "",
             tickformat = ",.0f",
             showgrid   = TRUE,
-            gridcolor  = "#eee"
+            gridcolor  = "#f0f0f0",
+            gridwidth  = 1,
+            zeroline   = FALSE,
+            tickfont   = list(size = 11, color = "#888"),
+            showticklabels = TRUE
           ),
           yaxis = list(
             title         = "",
             categoryorder = "array",
-            categoryarray = agg[[group_col]]
+            categoryarray = agg[[group_col]],
+            tickfont      = list(size = 12, color = "#1d3557", family = "Segoe UI"),
+            ticklen       = 6,
+            tickcolor     = "white"
           ),
-          margin        = list(l = 10, r = 90, t = 10, b = 40),
+          margin        = list(l = 8, r = 110, t = 10, b = 30),
           plot_bgcolor  = "white",
           paper_bgcolor = "white",
-          font          = list(family = "Segoe UI", size = 13),
-          hoverlabel    = list(bgcolor = "#1d3557", font = list(color = "white"))
+          font          = list(family = "Segoe UI", size = 12),
+          hoverlabel    = list(
+            bgcolor   = "#1d3557",
+            font      = list(color = "white", size = 12),
+            bordercolor = "#1d3557"
+          )
         ) %>%
         config(displayModeBar = FALSE)
       
@@ -451,10 +464,14 @@ server <- function(input, output, session) {
                        type          = "bar",
                        orientation   = "h",
                        name          = lbl,
-                       marker        = list(color = pal[i]),
-                       text          = ~paste0("\u20ac", formatC(Total, format = "f", digits = 0, big.mark = ",")),
+                       marker        = list(
+                         color = pal[i],
+                         line  = list(color = "white", width = 1)
+                       ),
+                       text          = ~paste0("  \u20ac", formatC(Total, format = "f", digits = 0, big.mark = ",")),
                        textposition  = "outside",
-                       hovertemplate = paste0(lbl, " | %{y}<br><b>\u20ac%{x:,.0f}</b><extra></extra>")
+                       textfont      = list(size = 11, color = "#1d3557", family = "Segoe UI"),
+                       hovertemplate = paste0("<b>", lbl, "</b><br>%{y}<br>\u20ac %{x:,.0f}<extra></extra>")
         )
       }
       
@@ -462,22 +479,32 @@ server <- function(input, output, session) {
         layout(
           barmode = "group",
           xaxis   = list(
-            title      = "Total (\u20ac)",
+            title      = "",
             tickformat = ",.0f",
             showgrid   = TRUE,
-            gridcolor  = "#eee"
+            gridcolor  = "#f0f0f0",
+            gridwidth  = 1,
+            zeroline   = FALSE,
+            tickfont   = list(size = 11, color = "#888")
           ),
           yaxis = list(
             title         = "",
             categoryorder = "array",
-            categoryarray = cat_order
+            categoryarray = cat_order,
+            tickfont      = list(size = 12, color = "#1d3557", family = "Segoe UI"),
+            ticklen       = 6,
+            tickcolor     = "white"
           ),
-          margin        = list(l = 10, r = 90, t = 10, b = 40),
+          margin        = list(l = 8, r = 110, t = 10, b = 30),
           plot_bgcolor  = "white",
           paper_bgcolor = "white",
-          font          = list(family = "Segoe UI", size = 13),
+          font          = list(family = "Segoe UI", size = 12),
           legend        = list(orientation = "h", x = 0, y = 1.08, xanchor = "left", yanchor = "bottom"),
-          hoverlabel    = list(bgcolor = "#1d3557", font = list(color = "white"))
+          hoverlabel    = list(
+            bgcolor     = "#1d3557",
+            font        = list(color = "white", size = 12),
+            bordercolor = "#1d3557"
+          )
         ) %>%
         config(displayModeBar = FALSE)
     }
@@ -714,11 +741,20 @@ server <- function(input, output, session) {
     if (is.null(rows) || length(rows) == 0) d else d[rows, , drop = FALSE]
   })
   
-  # Only show PDF button for Exotisch > Bill_to path
-  output$dl_prod_pdf_ui <- renderUI({
-    if (!is.null(sel_cat()) && sel_cat() == "Exotisch" && !is.null(sel_rek())) {
-      downloadButton("dl_prod_pdf", label = "PDF",
-                     style = "background:#e63946; color:white; border:none; margin-left:0;")
+  # Conditionally show export buttons depending on drill path
+  output$dl_prod_buttons_ui <- renderUI({
+    is_exotisch <- !is.null(sel_cat()) && sel_cat() == "Exotisch" && !is.null(sel_rek())
+    if (is_exotisch) {
+      tagList(
+        downloadButton("dl_prod_excel", label = "Excel", style = "margin-right:6px;"),
+        downloadButton("dl_prod_pdf",   label = "Create Invoice",
+                       style = "background:#e63946; color:white; border:none; border-radius:4px; padding:7px 14px;")
+      )
+    } else {
+      tagList(
+        downloadButton("dl_prod_csv",   label = "CSV",   style = "margin-right:6px;"),
+        downloadButton("dl_prod_excel", label = "Excel")
+      )
     }
   })
   
