@@ -5,7 +5,6 @@ library(plotly)
 library(DT)
 library(writexl)
 library(grid)
-library(gridExtra)
 
 # ── Load data ──────────────────────────────────────────────────────────────────
 df <- read_excel("data/bestellingen 7180 2025_2026_latest.xlsx") %>%
@@ -72,7 +71,8 @@ ui <- fluidPage(
       font-size: .85rem; margin-bottom: 10px; transition: background .2s;
     }
     .back-btn:hover { background: #1d3557; }
-    .hint { color: #888; font-size: .82rem; font-style: italic; }
+    .hint { color: #888; font-size: 1rem; font-style: italic; }
+    .dt-nowrap { white-space: nowrap !important; }
     .yr-block {
       background: #f8f9fc; border: 1px solid #dde3f0; border-radius: 8px;
       padding: 12px; margin-bottom: 10px;
@@ -100,7 +100,7 @@ ui <- fluidPage(
   
   tabsetPanel(id = "main_tab", type = "tabs",
               
-              tabPanel("📊 Dashboard",
+              tabPanel("\U0001f4ca Dashboard",
                        fluidRow(
                          # ── Sidebar ──────────────────────────────────────────────────────────────
                          column(3,
@@ -134,7 +134,7 @@ ui <- fluidPage(
                                       )
                                     ),
                                     hr(),
-                                    div(class = "filter-label", "🚫 Categories"),
+                                    div(class = "filter-label", "\U0001f6ab Categories"),
                                     checkboxInput("hide_investering", "Hide \"Investering\"", value = FALSE),
                                     hr(),
                                     uiOutput("summary_box")
@@ -186,7 +186,7 @@ ui <- fluidPage(
                        )
               ), # end Dashboard tabPanel
               
-              tabPanel("🗂 Data",
+              tabPanel("\U0001f5c2 Data",
                        br(),
                        div(class = "panel-box",
                            div(style = "display:flex; justify-content:space-between; align-items:center;",
@@ -197,6 +197,7 @@ ui <- fluidPage(
                                )
                            ),
                            tags$hr(style = "border-color:#457b9d; margin-top:8px;"),
+                           uiOutput("active_filters_ui"),
                            p(class = "hint", "Use the search box or column filters to narrow down, then export all matching rows."),
                            DTOutput("table_all")
                        )
@@ -604,8 +605,7 @@ server <- function(input, output, session) {
     df %>%
       arrange(desc(Date)) %>%
       mutate(
-        Date        = format(Date, "%d-%m-%Y"),
-        Price = paste0("€ ", formatC(Price, format = "f", digits = 2))
+        Price = paste0("\u20ac ", formatC(Price, format = "f", digits = 2))
       ) %>%
       select(-`Pos.`, -Status, -Valuta, -Time)
   })
@@ -619,14 +619,61 @@ server <- function(input, output, session) {
                 dom        = "frtip",
                 order      = list(),
                 scrollX    = TRUE,
-                columnDefs = list(list(className = "dt-center", targets = "_all")),
+                columnDefs = list(
+                  list(className = "dt-center", targets = "_all"),
+                  list(targets = 3, width = "110px", className = "dt-right dt-nowrap")
+                ),
                 stateSave  = FALSE
               )
     ) %>%
-      formatStyle("Price", fontWeight = "bold", color = "#e63946")
+      formatStyle("Price", fontWeight = "bold", color = "#e63946") %>%
+      formatDate("Date", method = "toLocaleDateString",
+                 params = list("nl-NL", list(day = "2-digit", month = "2-digit", year = "numeric")))
   }, server = TRUE)
   
-  # Download handlers — export only filtered rows
+  # ── Active filters display ────────────────────────────────────────────────
+  output$active_filters_ui <- renderUI({
+    col_names   <- c("Shopping_basket","Basket_name","Product","Price",
+                     "Ordered_by","Date","Categories","Subcategories",
+                     "Bill_to","Year","Quarter")
+    search_cols <- input$table_all_search_columns
+    search_glob <- input$table_all_search
+    tags_list   <- list()
+    
+    pill <- function(label, value) {
+      tags$span(
+        style = "display:inline-block; background:#eaf2ff; border:1px solid #457b9d;
+                 border-radius:14px; padding:5px 14px; margin:3px; font-size:1.05rem; color:#1d3557;",
+        tags$b(paste0(label, ": ")), value
+      )
+    }
+    
+    # Global search box
+    if (!is.null(search_glob) && nchar(trimws(search_glob)) > 0)
+      tags_list <- c(tags_list, list(pill("Search", search_glob)))
+    
+    # Column filters - plain chr vector, one entry per column
+    if (!is.null(search_cols)) {
+      for (i in seq_along(search_cols)) {
+        val <- trimws(search_cols[i])
+        if (nchar(val) > 0 && i <= length(col_names)) {
+          clean <- gsub('^\\["?|"?\\]$', "", val)
+          tags_list <- c(tags_list, list(pill(col_names[i], clean)))
+        }
+      }
+    }
+    
+    if (length(tags_list) == 0) return(NULL)
+    
+    div(
+      style = "margin-bottom:8px;",
+      tags$span(style = "font-size:.9rem; color:#888; margin-right:8px;",
+                "\U0001f50d Active filters:"),
+      tags_list
+    )
+  })
+  
+  # Download handlers - export only filtered rows
   fname_all <- function() paste0("export_all_", format(Sys.Date(), "%Y%m%d"))
   
   filtered_all_data <- reactive({
@@ -648,7 +695,7 @@ server <- function(input, output, session) {
   # ── Level 3 – Product table ────────────────────────────────────────────────
   output$prod_title <- renderUI({
     req(sel_cat(), sel_sub())
-    total_fmt <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+    total_fmt <- paste0("\u20ac ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
     HTML(paste0(
       "Products in <b>", sel_sub(), "</b>",
       " &nbsp;<span style='color:#e63946;font-weight:700;'>", total_fmt, "</span>",
@@ -666,7 +713,10 @@ server <- function(input, output, session) {
                 dom        = "tip",
                 order      = list(),
                 scrollX    = TRUE,
-                columnDefs = list(list(className = "dt-center", targets = "_all"))
+                columnDefs = list(
+                  list(className = "dt-center", targets = "_all"),
+                  list(targets = 3, width = "110px", className = "dt-right dt-nowrap")
+                )
               )
     ) %>%
       formatStyle("Price", fontWeight = "bold", color = "#e63946") %>%
@@ -693,7 +743,7 @@ server <- function(input, output, session) {
       filter(Subcategories == sel_sub()) %>%
       arrange(desc(Date)) %>%
       mutate(
-        Price = paste0("€ ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
+        Price = paste0("\u20ac ", formatC(Price, format = "f", digits = 2, big.mark = ",")),
         Date  = format(Date, "%d-%m-%Y")
       ) %>%
       select(-Label, -`Pos.`, -Status, -Valuta, -Time)
@@ -703,7 +753,7 @@ server <- function(input, output, session) {
       total_row <- d[1, ]
       total_row[1, ] <- NA
       total_row$Product <- "TOTAL"
-      total_row$Price   <- paste0("€ ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
+      total_row$Price   <- paste0("\u20ac ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
       d <- bind_rows(d, total_row)
     }
     d
@@ -711,27 +761,7 @@ server <- function(input, output, session) {
   
   prod_fname <- reactive({
     rek_part <- if (!is.null(sel_rek())) paste0("_", sel_rek()) else ""
-    fname <- if (input$filter_tab == "Date Range") {
-      paste0(
-        "export_",
-        format(input$date_range[1], "%Y%m%d"),
-        "_to_",
-        format(input$date_range[2], "%Y%m%d"),
-        "_", sel_cat(), rek_part, "_", sel_sub()
-      )
-    } else {
-      n            <- yr_count()
-      period_parts <- sapply(seq_len(n), function(i) {
-        yr   <- input[[paste0("yr_", i)]]
-        qtrs <- paste(sort(input[[paste0("qtr_", i)]]), collapse = "")
-        paste0(yr, qtrs)
-      })
-      paste0(
-        "export_",
-        paste(period_parts, collapse = "_vs_"),
-        "_", sel_cat(), rek_part, "_", sel_sub()
-      )
-    }
+    fname    <- paste0("export_", timeframe_label(), "_", sel_cat(), rek_part, "_", sel_sub())
     gsub("[^A-Za-z0-9_.\\-]", "_", fname)
   })
   
@@ -774,34 +804,29 @@ server <- function(input, output, session) {
       
       total_fmt <- paste0("EUR ", formatC(prod_total_price(), format = "f", digits = 2, big.mark = ","))
       
-      # ── Colours ─────────────────────────────────────────────────────────────
       col_dark  <- "#1d3557"
       col_red   <- "#e63946"
       col_light <- "#eaf2ff"
       col_grey  <- "#f4f6fb"
       
-      # ── Column layout ────────────────────────────────────────────────────────
       col_labels <- c("Date", "Basket #", "Basket Name", "Product", "Price")
-      col_widths <- c(0.11, 0.11, 0.24, 0.40, 0.14)  # fractions of content width
+      col_widths <- c(0.11, 0.11, 0.24, 0.40, 0.14)
       n_cols     <- length(col_labels)
       n_rows     <- nrow(d_raw)
       
-      # ── Page setup ───────────────────────────────────────────────────────────
-      pdf(file, width = 11, height = 8.5, paper = "a4r")  # landscape A4
+      pdf(file, width = 11, height = 8.5, paper = "a4r")
       grid.newpage()
       
-      # margins in npc
       ml <- 0.04; mr <- 0.04; mt <- 0.03; mb <- 0.04
-      cw <- 1 - ml - mr   # content width
-      ch <- 1 - mt - mb   # content height
+      cw <- 1 - ml - mr
+      ch <- 1 - mt - mb
       
       vp_main <- viewport(x = ml, y = mb, width = cw, height = ch,
                           just = c("left","bottom"))
       pushViewport(vp_main)
       
-      y_cursor <- 1.0  # top of content area
+      y_cursor <- 1.0
       
-      # ── Header bar ──────────────────────────────────────────────────────────
       hdr_h <- 0.10
       grid.rect(x = 0, y = y_cursor - hdr_h, width = 1, height = hdr_h,
                 just = c("left","bottom"), gp = gpar(fill = col_dark, col = NA))
@@ -814,7 +839,6 @@ server <- function(input, output, session) {
                 just = c("right","center"), gp = gpar(col = "white", fontsize = 8))
       y_cursor <- y_cursor - hdr_h - 0.02
       
-      # ── Meta cards ──────────────────────────────────────────────────────────
       meta_h   <- 0.09
       meta_lbs <- c("BILL TO", "SUBCATEGORY", "PERIOD")
       meta_vls <- c(sel_rek(), sel_sub(), timeframe_label())
@@ -833,15 +857,11 @@ server <- function(input, output, session) {
       }
       y_cursor <- y_cursor - meta_h - 0.025
       
-      # ── Table: available height ──────────────────────────────────────────────
-      avail_h  <- y_cursor - 0.08   # leave room for total box + footer
-      row_h    <- min(0.045, avail_h / (n_rows + 1.5))
+      avail_h   <- y_cursor - 0.08
+      row_h     <- min(0.045, avail_h / (n_rows + 1.5))
       hdr_row_h <- row_h * 1.1
+      col_x     <- cumsum(c(0, col_widths[-n_cols]))
       
-      # column x positions
-      col_x <- cumsum(c(0, col_widths[-n_cols]))
-      
-      # Header row
       grid.rect(x = 0, y = y_cursor - hdr_row_h, width = 1, height = hdr_row_h,
                 just = c("left","bottom"), gp = gpar(fill = col_dark, col = NA))
       for (j in seq_len(n_cols)) {
@@ -853,7 +873,6 @@ server <- function(input, output, session) {
       }
       y_cursor <- y_cursor - hdr_row_h
       
-      # Data rows
       for (i in seq_len(n_rows)) {
         bg <- if (i %% 2 == 0) col_light else "white"
         grid.rect(x = 0, y = y_cursor - row_h, width = 1, height = row_h,
@@ -872,12 +891,10 @@ server <- function(input, output, session) {
         y_cursor <- y_cursor - row_h
       }
       
-      # Separator line above total
       grid.lines(x = c(0,1), y = c(y_cursor, y_cursor),
                  gp = gpar(col = col_red, lwd = 1.5))
       y_cursor <- y_cursor - 0.015
       
-      # ── Total box ────────────────────────────────────────────────────────────
       tot_h <- 0.055
       grid.rect(x = 0, y = y_cursor - tot_h, width = 1, height = tot_h,
                 just = c("left","bottom"), gp = gpar(fill = "#fff3f3", col = col_red, lwd = 1.2))
@@ -887,7 +904,6 @@ server <- function(input, output, session) {
                 just = c("right","center"), gp = gpar(col = col_red, fontsize = 13, fontface = "bold"))
       y_cursor <- y_cursor - tot_h - 0.015
       
-      # ── Footer ───────────────────────────────────────────────────────────────
       grid.lines(x = c(0,1), y = c(0.015, 0.015), gp = gpar(col = "#dddddd", lwd = 0.5))
       grid.text(paste0("Period: ", timeframe_label(), "  |  Expenses on 7180"),
                 x = 0.5, y = 0.007, just = c("center","bottom"),
